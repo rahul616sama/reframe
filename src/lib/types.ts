@@ -20,7 +20,7 @@ export interface EditRecipe {
   framing: "fit" | "fill";
   trimStart: number;
   trimEnd: number | null;
-  rotate: 0 | 90 | 180 | 270;
+  rotate: number;
   keepAudio: boolean;
   normalizeAudio: boolean;
   speed: number;
