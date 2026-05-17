@@ -10,9 +10,22 @@ interface Props {
   onChange: (patch: Partial<EditRecipe>) => void;
 }
 
-const ROTATIONS = [0, 90, 180, 270] as const;
+const PRESETS = [0, 90, 180, 270] as const;
 
 export default function RotateControl({ recipe, onChange }: Props) {
+  const rotation = recipe.rotate ?? 0;
+
+  const handleSlider = (val: number) => {
+    onChange({ rotate: val });
+  };
+
+  const handleInput = (val: string) => {
+    const n = parseFloat(val);
+    if (isNaN(n)) return;
+    const clamped = Math.min(180, Math.max(-180, n));
+    onChange({ rotate: clamped });
+  };
+
   return (
     <div className="flex gap-2">
       {ROTATIONS.map((deg) => {
