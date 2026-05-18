@@ -58,6 +58,7 @@ export default function VideoEditor() {
     overlayPosition, setOverlayPosition,
     overlaySize, setOverlaySize,
     overlayOpacity, setOverlayOpacity,
+    recommendedPreset,
   } = useVideoEditor();
   const [copied, setCopied] = useState(false);
   const downloadRef = useRef<HTMLDivElement>(null);
@@ -315,6 +316,13 @@ export default function VideoEditor() {
           )}>
             <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5 space-y-6 animate-fade-in" style={{ animationDelay: "50ms" }}>
               <Section icon={<Layers size={12} />} title="Output size">
+                {recommendedPreset && (
+                  <div className="mb-4 rounded-2xl border border-film-200 bg-film-50 p-3 text-sm text-film-700">
+                    <p>
+                      We detected a {recommendedPreset.label.replace(/\s/g, "")} video → Recommended: {recommendedPreset.platform.split("·")[0].trim()} ({recommendedPreset.label.replace(/\s/g, "")})
+                    </p>
+                  </div>
+                )}
                 <PresetSelector recipe={recipe} onChange={updateRecipe} />
               </Section>
 
