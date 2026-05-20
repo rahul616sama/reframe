@@ -77,8 +77,8 @@ export default function RotateControl({ recipe, onChange }: Props) {
       <div className="space-y-1.5">
         <div className="flex justify-between items-center">
           <label htmlFor="rotate-slider" className="text-[10px] font-heading font-semibold uppercase tracking-wider text-[var(--muted)]">
-  Custom Rotation
-</label>
+            Custom Rotation
+          </label>
           <div className="flex items-center gap-1">
             <input
               type="number"
