@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions */
 "use client";
 
-import { useEffect, useRef, useState, useCallback, RefObject } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, RefObject } from "react";
 import { EditRecipe } from "@/lib/types";
 import { getPresetById } from "@/lib/presets";
 import { cn } from "@/lib/utils";
@@ -13,24 +13,21 @@ interface Props {
   recipe?: EditRecipe;
   videoRef: RefObject<HTMLVideoElement | null>;
 }
- 
-export interface VideoPreviewProps {
-  /** URL / object-URL of the video to preview */
-  src: string;
-  /** Current colour adjustments from the editor */
-  adjustments?: ColourAdjustments;
-  /** Optional: max width of the preview in px (default: 854) */
-  maxWidth?: number;
+
+// ── Colour adjustment helpers ─────────────────────────────────────────────────
+
+interface ColourAdjustments {
+  brightness: number;
+  contrast: number;
+  saturation: number;
 }
- 
-// ── Helpers ──────────────────────────────────────────────────────────────────
- 
+
 const DEFAULT: ColourAdjustments = {
   brightness: 100,
   contrast: 100,
   saturation: 100,
 };
- 
+
 function buildFilterString(adj: ColourAdjustments): string {
   const parts: string[] = [];
   if (adj.brightness !== DEFAULT.brightness)
@@ -41,7 +38,7 @@ function buildFilterString(adj: ColourAdjustments): string {
     parts.push(`saturate(${adj.saturation}%)`);
   return parts.join(" ");
 }
- 
+
 function isAdjusted(adj: ColourAdjustments): boolean {
   return (
     adj.brightness !== DEFAULT.brightness ||
@@ -49,33 +46,21 @@ function isAdjusted(adj: ColourAdjustments): boolean {
     adj.saturation !== DEFAULT.saturation
   );
 }
- 
+
 // ── Component ────────────────────────────────────────────────────────────────
- 
-export default function VideoPreview({
-  src,
-  adjustments = DEFAULT,
-  maxWidth = 854,
-}: VideoPreviewProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: maxWidth, height: 480 });
- 
-  const filterString = useMemo(
-    () => buildFilterString(adjustments),
-    [adjustments]
-  );
-  const showSlider = isAdjusted(adjustments);
- 
-  // Derive pixel dimensions once video metadata loads
 
 export default function VideoPreview({ file, recipe, videoRef }: Props) {
   const lastId = useRef(0);
   const urlRef = useRef<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const onLoadedRef = useRef<(() => void) | null>(null);
+
+  const adjustments: ColourAdjustments = (recipe as any)?.adjustments ?? DEFAULT;
+  const filterString = useMemo(() => buildFilterString(adjustments), [adjustments]);
+  const showColourSlider = isAdjusted(adjustments);
 
   const handleGrabFrame = useCallback(() => {
     const video = videoRef.current;
@@ -113,28 +98,10 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
     setIsLoading(true);
     const id = ++lastId.current;
     const url = URL.createObjectURL(file);
-
-    if (urlRef.current) {
-      URL.revokeObjectURL(urlRef.current);
-    }
     urlRef.current = url;
 
     const video = videoRef.current;
     if (!video) return;
- 
-    const onMeta = () => {
-      const aspect = video.videoWidth / (video.videoHeight || 1);
-      const w = Math.min(maxWidth, video.videoWidth || maxWidth);
-      const h = Math.round(w / aspect);
-      setDimensions({ width: w, height: h });
-    };
- 
-    video.addEventListener("loadedmetadata", onMeta);
-    return () => video.removeEventListener("loadedmetadata", onMeta);
-  }, [src, maxWidth]);
- 
-  const { width, height } = dimensions;
- 
 
     video.src = url;
     video.load();
@@ -145,7 +112,6 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
     };
 
     onLoadedRef.current = handleLoaded;
-
     video.addEventListener("loadeddata", handleLoaded);
 
     return () => {
@@ -180,40 +146,32 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
   const overlay = (() => {
     if (!recipe || !showOverlay) return null;
 
-    const preset = recipe.preset === "custom"
-      ? { width: recipe.customWidth, height: recipe.customHeight }
-      : getPresetById(recipe.preset);
+    const preset =
+      recipe.preset === "custom"
+        ? { width: recipe.customWidth, height: recipe.customHeight }
+        : getPresetById(recipe.preset);
 
     if (!preset) return null;
 
-    // Preview container is 16:9
-    const containerW = 16;
-    const containerH = 9;
-    const containerRatio = containerW / containerH;   // 1.777…
+    const containerRatio = 16 / 9;
     const outputRatio = preset.width / preset.height;
 
     if (recipe.framing === "fit") {
-      // Letterbox: the output video fits entirely inside 16:9, padded with bars.
       if (outputRatio > containerRatio) {
-        // Wider output → pillarbox bars on top & bottom
         const contentH = (containerRatio / outputRatio) * 100;
         const barH = (100 - contentH) / 2;
         return { mode: "fit", barTop: `${barH}%`, barBottom: `${barH}%`, barLeft: "0", barRight: "0" };
       } else {
-        // Taller output → letterbox bars on left & right
         const contentW = (outputRatio / containerRatio) * 100;
         const barW = (100 - contentW) / 2;
         return { mode: "fit", barTop: "0", barBottom: "0", barLeft: `${barW}%`, barRight: `${barW}%` };
       }
     } else {
-      // Fill / crop: the output fills the entire 16:9 preview — show a box representing what survives the crop.
       if (outputRatio < containerRatio) {
-        // Output is taller → crops top & bottom
         const visibleH = (outputRatio / containerRatio) * 100;
         const cropH = (100 - visibleH) / 2;
         return { mode: "fill", barTop: `${cropH}%`, barBottom: `${cropH}%`, barLeft: "0", barRight: "0" };
       } else {
-        // Output is wider → crops left & right
         const visibleW = (containerRatio / outputRatio) * 100;
         const cropW = (100 - visibleW) / 2;
         return { mode: "fill", barTop: "0", barBottom: "0", barLeft: `${cropW}%`, barRight: `${cropW}%` };
@@ -236,7 +194,7 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
 
       const video = videoRef.current;
       if (video) {
-        e.preventDefault(); // Prevent default page scroll
+        e.preventDefault();
         if (video.paused) {
           video.play().catch(() => {});
         } else {
@@ -249,6 +207,7 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
   return (
     <>
       <div
+        ref={containerRef}
         role="group"
         className="relative w-full rounded-lg overflow-hidden bg-[#0a0a0a] aspect-video focus:outline-none focus-visible:ring-2 focus-visible:ring-film-500"
         tabIndex={0}
@@ -265,7 +224,11 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
         <video
           ref={videoRef}
           controls
-          className={cn("w-full h-full object-contain transition-opacity duration-300", isLoading ? "opacity-0" : "opacity-100")}
+          className={cn(
+            "w-full h-full object-contain transition-opacity duration-300",
+            isLoading ? "opacity-0" : "opacity-100"
+          )}
+          style={filterString ? { filter: filterString } : undefined}
           onLoadedData={() => setIsLoading(false)}
           playsInline
           muted={!recipe?.keepAudio}
@@ -277,7 +240,6 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
         {overlay && (
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
             {overlay.mode === "fit" ? (
-              // Letterbox: semi-transparent bars outside the content area
               <>
                 <div className="absolute left-0 right-0 top-0 bg-black/50" style={{ height: overlay.barTop }} />
                 <div className="absolute left-0 right-0 bottom-0 bg-black/50" style={{ height: overlay.barBottom }} />
@@ -285,7 +247,6 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
                 <div className="absolute top-0 bottom-0 right-0 bg-black/50" style={{ width: overlay.barRight }} />
               </>
             ) : (
-              // Fill/crop: dashed border around the surviving area, dimmed outside
               <>
                 <div className="absolute left-0 right-0 top-0 bg-red-900/50" style={{ height: overlay.barTop }} />
                 <div className="absolute left-0 right-0 bottom-0 bg-red-900/50" style={{ height: overlay.barBottom }} />
@@ -305,7 +266,7 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
           </div>
         )}
 
-        {/* Toggle button */}
+        {/* Toggle overlay button */}
         {recipe && !isLoading && (
           <button
             type="button"

@@ -19,7 +19,11 @@ import ImageOverlay from "./ImageOverlay"
 import { cn } from "@/lib/utils";
 import {
   Layers, Crop, Scissors, RotateCw, Volume2,
+<<<<<<< HEAD
   SlidersHorizontal, Zap, AlertTriangle, Github, Copy
+=======
+  SlidersHorizontal, Zap, AlertTriangle
+>>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
 } from "lucide-react";
 import OnboardingTour from "./OnboardingTour";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -307,8 +311,9 @@ export default function VideoEditor() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
 
+          {/* LEFT PANEL */}
           <div className="space-y-4 min-w-0">
             <div className="bg-[var(--surface)] rounded-xl p-5 border border-[var(--border)] animate-fade-in">
               <FileUpload onFileSelect={handleFileSelect} currentFile={file} fileError={fileError} duration={duration} />
@@ -386,6 +391,7 @@ export default function VideoEditor() {
                     delay={150}
                   >
                     <AudioSpeedControl recipe={recipe} onChange={updateRecipe} />
+<<<<<<< HEAD
                   </AccordionSection>
                   <Section
                     icon={<SlidersHorizontal size={12} />}
@@ -469,6 +475,8 @@ export default function VideoEditor() {
                         />
                       </div>
                     </div>
+=======
+>>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
                   </Section>
                   <Section icon={<SlidersHorizontal size={12} />} title="Output format" delay={190}>
                     <FormatSelector recipe={recipe} onChange={updateRecipe} />
@@ -541,7 +549,9 @@ export default function VideoEditor() {
             )}
           </div>
 
+          {/* RIGHT PANEL — sticky so it stays visible while scrolling */}
           <div className={cn(
+<<<<<<< HEAD
             "space-y-5 transition-opacity duration-300",
             (isProcessing || !file) && "pointer-events-none opacity-50"
           )}>
@@ -564,6 +574,13 @@ export default function VideoEditor() {
                 onToggle={() => toggleSection("resize")}
                 delay={50}
               >
+=======
+            "space-y-5 lg:sticky lg:top-6",
+            isProcessing && "pointer-events-none opacity-50"
+          )}>
+            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5 space-y-6 animate-fade-in lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto" style={{ animationDelay: "50ms" }}>
+              <Section icon={<Layers size={12} />} title="Output size">
+>>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
                 {recommendedPreset && (
                   <div className="mb-4 rounded-2xl border border-film-200 bg-film-50 p-3 text-sm text-film-700">
                     <p>
@@ -577,6 +594,7 @@ export default function VideoEditor() {
                 </div>
               </AccordionSection>
 
+<<<<<<< HEAD
               <div className="pt-2 flex justify-between items-center">
                 <button
                   type="button"
@@ -586,6 +604,42 @@ export default function VideoEditor() {
                   <Copy size={12} />
                   {shareCopied ? "Copied!" : "Copy Link"}
                 </button>
+=======
+              <Section icon={<Crop size={12} />} title="Framing" delay={100}>
+                <FramingControl recipe={recipe} onChange={updateRecipe} />
+              </Section>
+
+              {/* Adjustments moved here so they stay visible next to the video */}
+              {file && (
+                <Section icon={<SlidersHorizontal size={12} />} title="Adjustments" delay={150}>
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="brightness-slider">Brightness</label>
+                        <button type="button" onClick={() => updateRecipe({ brightness: 0 })} className="text-film-500 hover:underline">Reset</button>
+                      </div>
+                      <input id="brightness-slider" type="range" min="-1" max="1" step="0.1" value={recipe.brightness} onChange={(e) => updateRecipe({ brightness: Number(e.target.value) })} aria-label="Adjust brightness" className="w-full" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="contrast-slider">Contrast</label>
+                        <button type="button" onClick={() => updateRecipe({ contrast: 1 })} className="text-film-500 hover:underline">Reset</button>
+                      </div>
+                      <input id="contrast-slider" type="range" min="0" max="2" step="0.1" value={recipe.contrast} onChange={(e) => updateRecipe({ contrast: Number(e.target.value) })} aria-label="Adjust contrast" className="w-full" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="saturation-slider">Saturation</label>
+                        <button type="button" onClick={() => updateRecipe({ saturation: 1 })} className="text-film-500 hover:underline">Reset</button>
+                      </div>
+                      <input id="saturation-slider" type="range" min="0" max="3" step="0.1" value={recipe.saturation} onChange={(e) => updateRecipe({ saturation: Number(e.target.value) })} aria-label="Adjust saturation" className="w-full" />
+                    </div>
+                  </div>
+                </Section>
+              )}
+
+              <div className="pt-2 flex justify-end">
+>>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
                 <button
                   type="button"
                   onClick={resetSettings}
