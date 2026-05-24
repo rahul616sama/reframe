@@ -2,16 +2,20 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo, RefObject } from "react";
-import { EditRecipe } from "@/lib/types";
+import { EditRecipe, TextOverlay } from "@/lib/types";
 import { getPresetById } from "@/lib/presets";
 import { cn } from "@/lib/utils";
 import { Camera } from "lucide-react";
 import ComparisonPreview from "./ComparisonPreview";
+import DraggableTextOverlays from "./DraggableTextOverlays";
 
 interface Props {
   file: File | null;
   recipe?: EditRecipe;
   videoRef: RefObject<HTMLVideoElement | null>;
+  selectedTextId?: string | null;
+  onSelectText?: (id: string | null) => void;
+  onUpdateText?: (id: string, updates: Partial<TextOverlay>) => void;
 }
 
 // ── Colour adjustment helpers ─────────────────────────────────────────────────
@@ -49,13 +53,25 @@ function isAdjusted(adj: ColourAdjustments): boolean {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export default function VideoPreview({ file, recipe, videoRef }: Props) {
+export default function VideoPreview({
+  file,
+  recipe,
+  videoRef,
+  selectedTextId = null,
+  onSelectText,
+  onUpdateText,
+}: Props) {
   const lastId = useRef(0);
   const urlRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showOverlay, setShowOverlay] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [containerDimensions, setContainerDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
+  const previewContainerRef = useRef<HTMLDivElement>(null);
   const onLoadedRef = useRef<(() => void) | null>(null);
 
   const adjustments: ColourAdjustments = (recipe as any)?.adjustments ?? DEFAULT;
@@ -143,6 +159,22 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
     videoRef.current.playbackRate = recipe.speed;
   }, [recipe, videoRef]);
 
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (previewContainerRef.current) {
+        const rect = previewContainerRef.current.getBoundingClientRect();
+        setContainerDimensions({
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
+
   const overlay = (() => {
     if (!recipe || !showOverlay) return null;
 
@@ -207,7 +239,7 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
   return (
     <>
       <div
-        ref={containerRef}
+        ref={previewContainerRef}
         role="group"
         className="relative w-full rounded-lg overflow-hidden bg-[#0a0a0a] aspect-video focus:outline-none focus-visible:ring-2 focus-visible:ring-film-500"
         tabIndex={0}
@@ -266,7 +298,19 @@ export default function VideoPreview({ file, recipe, videoRef }: Props) {
           </div>
         )}
 
-        {/* Toggle overlay button */}
+        {/* Draggable Text Overlays */}
+        {recipe && !isLoading && containerDimensions.width > 0 && (
+          <DraggableTextOverlays
+            recipe={recipe}
+            containerWidth={containerDimensions.width}
+            containerHeight={containerDimensions.height}
+            selectedTextId={selectedTextId ?? null}
+            onSelectText={onSelectText || (() => {})}
+            onUpdateText={onUpdateText || (() => {})}
+          />
+        )}
+
+        {/* Toggle button */}
         {recipe && !isLoading && (
           <button
             type="button"

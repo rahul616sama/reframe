@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useVideoEditor } from "@/hooks/useVideoEditor";
+import { TextOverlay } from "@/lib/types";
 import FileUpload from "./FileUpload";
 import VideoPreview from "./VideoPreview";
 import ThumbnailStrip from "./ThumbnailStrip";
@@ -9,21 +10,18 @@ import PresetSelector from "./PresetSelector";
 import FramingControl from "./FramingControl";
 import TrimControl from "./TrimControl";
 import RotateControl from "./RotateControl";
+import TextControls from "./TextControls";
 import AudioSpeedControl from "./AudioSpeedControl";
 import FormatSelector from "./FormatSelector";
 import ExportSettings from "./ExportSettings";
 import ExportOverlay from "./ExportOverlay";
 import DownloadResult from "./DownloadResult";
-import ImageOverlay from "./ImageOverlay"
+import ImageOverlay from "./ImageOverlay";
 
 import { cn } from "@/lib/utils";
 import {
-  Layers, Crop, Scissors, RotateCw, Volume2,
-<<<<<<< HEAD
-  SlidersHorizontal, Zap, AlertTriangle, Github, Copy
-=======
-  SlidersHorizontal, Zap, AlertTriangle
->>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
+  Layers, Crop, Scissors, RotateCw, Volume2, Type,
+  SlidersHorizontal, Zap, AlertTriangle, Copy
 } from "lucide-react";
 import OnboardingTour from "./OnboardingTour";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -53,7 +51,6 @@ function Section({ icon, title, children, delay = 0 }: SectionProps) {
   );
 }
 
-/** Accordion section with collapsible content. */
 function AccordionSection({
   id,
   icon,
@@ -119,7 +116,6 @@ function AccordionSection({
   );
 }
 
-/** Inline keyboard hint badge. */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg)] text-[10px] font-mono text-[var(--muted)] leading-none">
@@ -128,42 +124,29 @@ function Kbd({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Collapsible panel that lists all keyboard shortcuts. */
 function KeyboardShortcutsPanel() {
   const [open, setOpen] = useState(false);
 
   const shortcuts: { keys: React.ReactNode[]; label: string }[] = [
-  {
-    keys: [
-      <Kbd key="ctrl">Ctrl</Kbd>,
-      <span key="plus1" className="text-[var(--muted)] text-xs">+</span>,
-      <Kbd key="shift">Shift</Kbd>,
-      <span key="plus2" className="text-[var(--muted)] text-xs">+</span>,
-      <Kbd key="e">E</Kbd>
-    ],
-    label: "Export video",
-  },
-  {
-    keys: [<Kbd key="m">M</Kbd>],
-    label: "Toggle audio mute",
-  },
-  {
-    keys: [<Kbd key="r">R</Kbd>],
-    label: "Reset all settings",
-  },
-  {
-    keys: [<Kbd key="esc">Esc</Kbd>],
-    label: "Cancel export",
-  },
-  {
-    keys: [<Kbd key="1">1</Kbd>, <span key="dash" className="text-[var(--muted)] text-xs">–</span>, <Kbd key="9">9</Kbd>],
-    label: "Switch preset by index",
-  },
-  {
-    keys: [<Kbd key="question">?</Kbd>],
-    label: "Toggle this panel",
-  },
-];
+    {
+      keys: [
+        <Kbd key="ctrl">Ctrl</Kbd>,
+        <span key="plus1" className="text-[var(--muted)] text-xs">+</span>,
+        <Kbd key="shift">Shift</Kbd>,
+        <span key="plus2" className="text-[var(--muted)] text-xs">+</span>,
+        <Kbd key="e">E</Kbd>
+      ],
+      label: "Export video",
+    },
+    { keys: [<Kbd key="m">M</Kbd>], label: "Toggle audio mute" },
+    { keys: [<Kbd key="r">R</Kbd>], label: "Reset all settings" },
+    { keys: [<Kbd key="esc">Esc</Kbd>], label: "Cancel export" },
+    {
+      keys: [<Kbd key="1">1</Kbd>, <span key="dash" className="text-[var(--muted)] text-xs">–</span>, <Kbd key="9">9</Kbd>],
+      label: "Switch preset by index",
+    },
+    { keys: [<Kbd key="question">?</Kbd>], label: "Toggle this panel" },
+  ];
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] animate-fade-in overflow-hidden">
@@ -191,10 +174,7 @@ function KeyboardShortcutsPanel() {
       </button>
 
       {open && (
-        <ul
-          id="keyboard-shortcuts-list"
-          className="px-4 pb-3 space-y-2 border-t border-[var(--border)]"
-        >
+        <ul id="keyboard-shortcuts-list" className="px-4 pb-3 space-y-2 border-t border-[var(--border)]">
           {shortcuts.map(({ keys, label }) => (
             <li key={label} className="flex items-center justify-between gap-3 pt-2">
               <span className="text-xs text-[var(--muted)]">{label}</span>
@@ -236,10 +216,12 @@ export default function VideoEditor() {
 
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState({
     resize: true,
     trim: false,
     rotation: false,
+    text: false,
     audio: false,
     export: false,
   });
@@ -247,6 +229,13 @@ export default function VideoEditor() {
   const toggleSection = (key: keyof typeof openSections) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const downloadRef = useRef<HTMLDivElement>(null);
+
+  const handleUpdateTextOverlay = (id: string, updates: Partial<TextOverlay>) => {
+    const updatedOverlays = (recipe.textOverlays || []).map((overlay) =>
+      overlay.id === id ? { ...overlay, ...updates } : overlay
+    );
+    updateRecipe({ textOverlays: updatedOverlays });
+  };
 
   const handleCopyLink = () => {
     if (typeof window === "undefined") return;
@@ -315,7 +304,7 @@ export default function VideoEditor() {
 
           {/* LEFT PANEL */}
           <div className="space-y-4 min-w-0">
-            <div className="bg-[var(--surface)] rounded-xl p-5 border border-[var(--border)] animate-fade-in">
+            <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)] animate-fade-in">
               <FileUpload onFileSelect={handleFileSelect} currentFile={file} fileError={fileError} duration={duration} />
 
               {!file && (
@@ -327,7 +316,14 @@ export default function VideoEditor() {
 
               {file && (
                 <div className="mt-4 animate-fade-in">
-                  <VideoPreview file={file} recipe={recipe} videoRef={videoRef} />
+                  <VideoPreview
+                    file={file}
+                    recipe={recipe}
+                    videoRef={videoRef}
+                    selectedTextId={selectedTextId}
+                    onSelectText={setSelectedTextId}
+                    onUpdateText={handleUpdateTextOverlay}
+                  />
 
                   <div className="mt-3">
                     <ThumbnailStrip
@@ -350,7 +346,7 @@ export default function VideoEditor() {
             )}
             {file && (
               <div className={cn(
-                "grid grid-cols-1 sm:grid-cols-2 gap-4",
+                "grid grid-cols-1 gap-4",
                 isProcessing && "pointer-events-none opacity-50"
               )}>
                 <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5 space-y-6">
@@ -380,6 +376,22 @@ export default function VideoEditor() {
                   >
                     <RotateControl recipe={recipe} onChange={updateRecipe} />
                   </AccordionSection>
+
+                  <AccordionSection
+                    id="text"
+                    icon={<Type size={12} />}
+                    title="Text Overlay"
+                    isOpen={openSections.text}
+                    onToggle={() => toggleSection("text")}
+                    delay={110}
+                  >
+                    <TextControls
+                      recipe={recipe}
+                      onChange={updateRecipe}
+                      selectedTextId={selectedTextId}
+                      onSelectText={setSelectedTextId}
+                    />
+                  </AccordionSection>
                 </div>
                 <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5 space-y-6">
                   <AccordionSection
@@ -391,93 +403,7 @@ export default function VideoEditor() {
                     delay={150}
                   >
                     <AudioSpeedControl recipe={recipe} onChange={updateRecipe} />
-<<<<<<< HEAD
                   </AccordionSection>
-                  <Section
-                    icon={<SlidersHorizontal size={12} />}
-                    title="Adjustments"
-                    delay={175}
-                  >
-                    <div className="space-y-5">
-                      {/* Brightness */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <label htmlFor="brightness-slider">Brightness</label>
-                          <button
-                            type="button"
-                            onClick={() => updateRecipe({ brightness: 0 })}
-                            className="text-film-500 hover:underline"
-                            aria-label="reset brightness"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                        <input
-                          id="brightness-slider"
-                          type="range"
-                          min="-1"
-                          max="1"
-                          step="0.1"
-                          value={recipe.brightness}
-                          onChange={(e) => updateRecipe({ brightness: Number(e.target.value) })}
-                          aria-label="Adjust brightness"
-                          className="w-full accent-film-600"
-                        />
-                      </div>
-                      {/* Contrast */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <label htmlFor="contrast-slider">Contrast</label>
-                          <button
-                            type="button"
-                            onClick={() => updateRecipe({ contrast: 1 })}
-                            className="text-film-500 hover:underline"
-                            aria-label="reset-contrast"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                        <input
-                          id="contrast-slider"
-                          type="range"
-                          min="0"
-                          max="2"
-                          step="0.1"
-                          value={recipe.contrast}
-                          onChange={(e) => updateRecipe({ contrast: Number(e.target.value) })}
-                          aria-label="Adjust contrast"
-                          className="w-full accent-film-600"
-                        />
-                      </div>
-                      {/* Saturation */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <label htmlFor="saturation-slider">Saturation</label>
-                          <button
-                            type="button"
-                            onClick={() => updateRecipe({ saturation: 1 })}
-                            className="text-film-500 hover:underline"
-                            aria-label="reset-saturation"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                        <input
-                          id="saturation-slider"
-                          type="range"
-                          min="0"
-                          max="3"
-                          step="0.1"
-                          value={recipe.saturation}
-                          onChange={(e) => updateRecipe({ saturation: Number(e.target.value) })}
-                          aria-label="Adjust saturation"
-                          className="w-full accent-film-600"
-                        />
-                      </div>
-                    </div>
-=======
->>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
-                  </Section>
                   <Section icon={<SlidersHorizontal size={12} />} title="Output format" delay={190}>
                     <FormatSelector recipe={recipe} onChange={updateRecipe} />
                   </Section>
@@ -551,7 +477,6 @@ export default function VideoEditor() {
 
           {/* RIGHT PANEL — sticky so it stays visible while scrolling */}
           <div className={cn(
-<<<<<<< HEAD
             "space-y-5 transition-opacity duration-300",
             (isProcessing || !file) && "pointer-events-none opacity-50"
           )}>
@@ -574,13 +499,6 @@ export default function VideoEditor() {
                 onToggle={() => toggleSection("resize")}
                 delay={50}
               >
-=======
-            "space-y-5 lg:sticky lg:top-6",
-            isProcessing && "pointer-events-none opacity-50"
-          )}>
-            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-5 space-y-6 animate-fade-in lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto" style={{ animationDelay: "50ms" }}>
-              <Section icon={<Layers size={12} />} title="Output size">
->>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
                 {recommendedPreset && (
                   <div className="mb-4 rounded-2xl border border-film-200 bg-film-50 p-3 text-sm text-film-700">
                     <p>
@@ -594,7 +512,35 @@ export default function VideoEditor() {
                 </div>
               </AccordionSection>
 
-<<<<<<< HEAD
+              {/* Adjustments in right panel — always visible next to video */}
+              {file && (
+                <Section icon={<SlidersHorizontal size={12} />} title="Adjustments" delay={150}>
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="brightness-slider">Brightness</label>
+                        <button type="button" onClick={() => updateRecipe({ brightness: 0 })} className="text-film-500 hover:underline" aria-label="reset brightness">Reset</button>
+                      </div>
+                      <input id="brightness-slider" type="range" min="-1" max="1" step="0.1" value={recipe.brightness} onChange={(e) => updateRecipe({ brightness: Number(e.target.value) })} aria-label="Adjust brightness" className="w-full accent-film-600" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="contrast-slider">Contrast</label>
+                        <button type="button" onClick={() => updateRecipe({ contrast: 1 })} className="text-film-500 hover:underline" aria-label="reset contrast">Reset</button>
+                      </div>
+                      <input id="contrast-slider" type="range" min="0" max="2" step="0.1" value={recipe.contrast} onChange={(e) => updateRecipe({ contrast: Number(e.target.value) })} aria-label="Adjust contrast" className="w-full accent-film-600" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="saturation-slider">Saturation</label>
+                        <button type="button" onClick={() => updateRecipe({ saturation: 1 })} className="text-film-500 hover:underline" aria-label="reset saturation">Reset</button>
+                      </div>
+                      <input id="saturation-slider" type="range" min="0" max="3" step="0.1" value={recipe.saturation} onChange={(e) => updateRecipe({ saturation: Number(e.target.value) })} aria-label="Adjust saturation" className="w-full accent-film-600" />
+                    </div>
+                  </div>
+                </Section>
+              )}
+
               <div className="pt-2 flex justify-between items-center">
                 <button
                   type="button"
@@ -604,42 +550,6 @@ export default function VideoEditor() {
                   <Copy size={12} />
                   {shareCopied ? "Copied!" : "Copy Link"}
                 </button>
-=======
-              <Section icon={<Crop size={12} />} title="Framing" delay={100}>
-                <FramingControl recipe={recipe} onChange={updateRecipe} />
-              </Section>
-
-              {/* Adjustments moved here so they stay visible next to the video */}
-              {file && (
-                <Section icon={<SlidersHorizontal size={12} />} title="Adjustments" delay={150}>
-                  <div className="space-y-5">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <label htmlFor="brightness-slider">Brightness</label>
-                        <button type="button" onClick={() => updateRecipe({ brightness: 0 })} className="text-film-500 hover:underline">Reset</button>
-                      </div>
-                      <input id="brightness-slider" type="range" min="-1" max="1" step="0.1" value={recipe.brightness} onChange={(e) => updateRecipe({ brightness: Number(e.target.value) })} aria-label="Adjust brightness" className="w-full" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <label htmlFor="contrast-slider">Contrast</label>
-                        <button type="button" onClick={() => updateRecipe({ contrast: 1 })} className="text-film-500 hover:underline">Reset</button>
-                      </div>
-                      <input id="contrast-slider" type="range" min="0" max="2" step="0.1" value={recipe.contrast} onChange={(e) => updateRecipe({ contrast: Number(e.target.value) })} aria-label="Adjust contrast" className="w-full" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <label htmlFor="saturation-slider">Saturation</label>
-                        <button type="button" onClick={() => updateRecipe({ saturation: 1 })} className="text-film-500 hover:underline">Reset</button>
-                      </div>
-                      <input id="saturation-slider" type="range" min="0" max="3" step="0.1" value={recipe.saturation} onChange={(e) => updateRecipe({ saturation: Number(e.target.value) })} aria-label="Adjust saturation" className="w-full" />
-                    </div>
-                  </div>
-                </Section>
-              )}
-
-              <div className="pt-2 flex justify-end">
->>>>>>> 777f05e (feat: move adjustments to sticky right panel for better UX)
                 <button
                   type="button"
                   onClick={resetSettings}
@@ -656,10 +566,10 @@ export default function VideoEditor() {
               id="export-button"
               type="button"
               onClick={handleExport}
-                disabled={!file || isProcessing}
-                aria-label='Export video'
-                aria-disabled={!file || isProcessing ? "true" : undefined}
-                title={!file ? "Upload a video to enable export" : undefined}
+              disabled={!file || isProcessing}
+              aria-label='Export video'
+              aria-disabled={!file || isProcessing ? "true" : undefined}
+              title={!file ? "Upload a video to enable export" : undefined}
               className={cn(
                 "w-full flex items-center justify-center gap-3 py-5 min-h-[44px] rounded-xl",
                 "font-display text-2xl tracking-widest transition-all duration-200",
@@ -668,7 +578,7 @@ export default function VideoEditor() {
                   : "bg-[var(--border)] text-[var(--muted)] cursor-not-allowed"
               )}
             >
-             <Zap size={20} className={cn(file && !isProcessing && "animate-pulse")} />
+              <Zap size={20} className={cn(file && !isProcessing && "animate-pulse")} />
               {isProcessing ? "PROCESSING" : "EXPORT"}
             </button>
 
